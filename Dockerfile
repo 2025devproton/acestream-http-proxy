@@ -70,40 +70,31 @@ RUN \
             cp -r /tmp/acestream/assets/* /app/acestream/ 2>/dev/null || true; \
         fi && \
         \
-        # Clean up
+        # Clean up temporary files
         rm -rf /tmp/acestream /tmp/acestream.apk && \
         \
-        # Create start-engine wrapper for ARM64
-        cat > /app/start-engine << 'EOFARM64' && \
-#!/bin/bash
-# AceStream Engine wrapper for ARM64 (Android binaries)
-
-export ANDROID_DATA=/app/androidfs
-export ANDROID_ROOT=/app/androidfs/system
-export LD_LIBRARY_PATH=/app/androidfs/system/lib:${LD_LIBRARY_PATH}
-
-# Change to app directory
-cd /app/acestream || cd /app
-
-# Try to find and execute the engine
-if [ -f /app/androidfs/system/lib/libacestream.so ]; then
-    exec /app/androidfs/system/lib/libacestream.so "$@"
-elif [ -f /app/androidfs/system/lib/acestreamengine.so ]; then
-    exec /app/androidfs/system/lib/acestreamengine.so "$@"
-else
-    echo "Error: AceStream engine binary not found"
-    echo "Available files in /app/androidfs/system/lib:"
-    ls -la /app/androidfs/system/lib/ || echo "Directory not found"
-    exit 1
-fi
-EOFARM64
+        # Create start-engine wrapper script for ARM64
+        printf '#!/bin/bash\n' > /app/start-engine && \
+        printf '# AceStream Engine wrapper for ARM64 (Android binaries)\n\n' >> /app/start-engine && \
+        printf 'export ANDROID_DATA=/app/androidfs\n' >> /app/start-engine && \
+        printf 'export ANDROID_ROOT=/app/androidfs/system\n' >> /app/start-engine && \
+        printf 'export LD_LIBRARY_PATH=/app/androidfs/system/lib:${LD_LIBRARY_PATH}\n\n' >> /app/start-engine && \
+        printf 'cd /app/acestream || cd /app\n\n' >> /app/start-engine && \
+        printf 'if [ -f /app/androidfs/system/lib/libacestream.so ]; then\n' >> /app/start-engine && \
+        printf '    exec /app/androidfs/system/lib/libacestream.so "$@"\n' >> /app/start-engine && \
+        printf 'elif [ -f /app/androidfs/system/lib/acestreamengine.so ]; then\n' >> /app/start-engine && \
+        printf '    exec /app/androidfs/system/lib/acestreamengine.so "$@"\n' >> /app/start-engine && \
+        printf 'else\n' >> /app/start-engine && \
+        printf '    echo "Error: AceStream engine binary not found"\n' >> /app/start-engine && \
+        printf '    echo "Available files in /app/androidfs/system/lib:"\n' >> /app/start-engine && \
+        printf '    ls -la /app/androidfs/system/lib/ || echo "Directory not found"\n' >> /app/start-engine && \
+        printf '    exit 1\n' >> /app/start-engine && \
+        printf 'fi\n' >> /app/start-engine && \
         chmod +x /app/start-engine && \
         \
         # Create minimal requirements.txt for ARM64
-        cat > /app/requirements.txt << 'EOFREQ' && \
-# Minimal Python requirements for ARM64
-# The Android binaries include most dependencies
-EOFREQ
+        printf '# Minimal Python requirements for ARM64\n' > /app/requirements.txt && \
+        printf '# The Android binaries include most dependencies\n' >> /app/requirements.txt && \
         echo "ARM64 setup complete"; \
     else \
         # For AMD64, use traditional Linux x86_64 binaries

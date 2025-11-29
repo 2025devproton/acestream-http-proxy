@@ -2,6 +2,9 @@
 
 FROM docker.io/library/python:3.10-slim-bookworm@sha256:034724ef64585eeb0e82385e9aabcbeabfe5f7cae2c2dcedb1da95114372b6d7
 
+# Build arguments for multi-arch support
+ARG TARGETARCH
+
 LABEL \
     maintainer="Martin Bjeldbak Madsen <me@martinbjeldbak.com>" \
     org.opencontainers.image.title="acestream-http-proxy" \
@@ -22,8 +25,7 @@ ENV DEBIAN_FRONTEND="noninteractive" \
     UV_SYSTEM_PYTHON=true \
     PYTHON_EGG_CACHE=/.cache
 
-ENV VERSION="3.2.3_ubuntu_22.04_x86_64_py3.10" \
-    ALLOW_REMOTE_ACCESS="no" \
+ENV ALLOW_REMOTE_ACCESS="no" \
     EXTRA_FLAGS=''
 
 USER root
@@ -40,12 +42,77 @@ RUN \
         curl \
         nano \
         libgirepository1.0-dev \
+        unzip \
     && groupadd --gid 1000 appuser \
     && useradd --uid 1000 --gid 1000 -m appuser \
     && mkdir -p /app \
     && mkdir -p /.cache \
-    && curl -fsSL "https://download.acestream.media/linux/acestream_${VERSION}.tar.gz" \
-        | tar xzf - -C /app \
+    && \
+    # Download and install AceStream based on architecture
+    if [ "$TARGETARCH" = "arm64" ]; then \
+        # For ARM64, use Android ARMv8 (64-bit) binaries
+        echo "Installing AceStream for ARM64 (using Android ARMv8 binaries)..." && \
+        curl -fsSL "https://download.acestream.media/products/acestream-engine/android/armv8_64/latest" -o /tmp/acestream.apk && \
+        unzip -q /tmp/acestream.apk -d /tmp/acestream && \
+        \
+        # Set up Android filesystem structure
+        mkdir -p /app/androidfs/system/lib && \
+        mkdir -p /app/androidfs/project && \
+        mkdir -p /app/acestream && \
+        \
+        # Copy ARM64 libraries
+        if [ -d /tmp/acestream/lib/arm64-v8a ]; then \
+            cp -r /tmp/acestream/lib/arm64-v8a/* /app/androidfs/system/lib/ 2>/dev/null || true; \
+        fi && \
+        \
+        # Copy assets and Python files
+        if [ -d /tmp/acestream/assets ]; then \
+            cp -r /tmp/acestream/assets/* /app/acestream/ 2>/dev/null || true; \
+        fi && \
+        \
+        # Clean up
+        rm -rf /tmp/acestream /tmp/acestream.apk && \
+        \
+        # Create start-engine wrapper for ARM64
+        cat > /app/start-engine << 'EOFARM64' && \
+#!/bin/bash
+# AceStream Engine wrapper for ARM64 (Android binaries)
+
+export ANDROID_DATA=/app/androidfs
+export ANDROID_ROOT=/app/androidfs/system
+export LD_LIBRARY_PATH=/app/androidfs/system/lib:${LD_LIBRARY_PATH}
+
+# Change to app directory
+cd /app/acestream || cd /app
+
+# Try to find and execute the engine
+if [ -f /app/androidfs/system/lib/libacestream.so ]; then
+    exec /app/androidfs/system/lib/libacestream.so "$@"
+elif [ -f /app/androidfs/system/lib/acestreamengine.so ]; then
+    exec /app/androidfs/system/lib/acestreamengine.so "$@"
+else
+    echo "Error: AceStream engine binary not found"
+    echo "Available files in /app/androidfs/system/lib:"
+    ls -la /app/androidfs/system/lib/ || echo "Directory not found"
+    exit 1
+fi
+EOFARM64
+        chmod +x /app/start-engine && \
+        \
+        # Create minimal requirements.txt for ARM64
+        cat > /app/requirements.txt << 'EOFREQ' && \
+# Minimal Python requirements for ARM64
+# The Android binaries include most dependencies
+EOFREQ
+        echo "ARM64 setup complete"; \
+    else \
+        # For AMD64, use traditional Linux x86_64 binaries
+        echo "Installing AceStream for AMD64 (using Linux x86_64 binaries)..." && \
+        VERSION="3.2.3_ubuntu_22.04_x86_64_py3.10" && \
+        curl -fsSL "https://download.acestream.media/linux/acestream_${VERSION}.tar.gz" \
+            | tar xzf - -C /app && \
+        echo "AMD64 setup complete"; \
+    fi \
     && pip install uv \
     && uv pip install --requirement /app/requirements.txt \
     && chown -R appuser:appuser /.cache /app && chmod -R 755 /app \

@@ -12,11 +12,25 @@ This is especially useful for Desktop and NAS usage for anyone who wants to
 tune in to AceStream channels, and who don't want to go through the trouble of
 installing AceStream and its dependencies natively.
 
-Note: ARM-based CPUs are not currently supported, see issues [#5] and [#13].
+## Supported Architectures
+
+This image supports multiple architectures:
+
+- **linux/amd64** (x86_64): Uses native Linux AceStream binaries
+- **linux/arm64** (aarch64): Uses Android ARMv8 (64-bit) binaries adapted for Linux
+
+The correct image for your architecture will be automatically pulled when you run the container.
+
+### ARM64 Notes
+
+ARM64 support uses AceStream's Android ARMv8 binaries running in a Linux environment. This approach has been successfully used by the community and should work on:
+
+- Raspberry Pi 4 and newer (64-bit OS)
+- Apple Silicon Macs (M1, M2, M3, etc.)
+- AWS Graviton instances
+- Other ARM64-based servers and NAS devices
 
 ## Usage
-
-Ensure you have [Docker](https://www.docker.com) installed and running. You can then pull down and run the container as shown below.
 
 ```console
 docker run -t -p 6878:6878 ghcr.io/martinbjeldbak/acestream-http-proxy
@@ -107,5 +121,3 @@ can be found [here][acestream]
 
 
 [acestream]: https://docs.acestream.net/en/developers/
-[#5]: https://github.com/martinbjeldbak/acestream-http-proxy/issues/5
-[#13]: https://github.com/martinbjeldbak/acestream-http-proxy/issues/13

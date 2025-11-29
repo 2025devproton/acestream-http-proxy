@@ -2,7 +2,7 @@
 services:
   acestream:
     container_name: acestream
-    image: ghcr.io/krinkuto11/acestream-http-proxy:latest
+    image: ghcr.io/2025devproton/acestream-http-proxy:latest
     restart: unless-stopped
     ports:
       - "6879:6879"
